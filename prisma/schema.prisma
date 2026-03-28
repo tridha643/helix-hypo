@@ -1,0 +1,36 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// One row per logical file in a corpus (PDF bytes + optional extracted text from the TS pipeline).
+model CorpusFile {
+  id               String    @id @default(uuid()) @db.Uuid
+  corpusId         String    @map("corpus_id") @db.VarChar(256)
+  storagePath      String    @map("storage_path") @db.VarChar(4096)
+  originalFilename String    @map("original_filename") @db.VarChar(1024)
+  /// Raw PDF bytes (or UTF-8 markdown) as stored for ingestion.
+  rawContent       Bytes?    @map("raw_content")
+  contentSha256    String?   @map("content_sha256") @db.VarChar(64)
+  bytesSize        Int?      @map("bytes_size")
+  sourceType       String    @map("source_type") @db.VarChar(32)
+  ingestStatus     String    @map("ingest_status") @db.VarChar(32)
+  helixDocId       String?   @map("helix_doc_id") @db.VarChar(128)
+  lastIngestedAt   DateTime? @map("last_ingested_at") @db.Timestamptz(6)
+  /// Plain text extracted in the TS worker (e.g. pdf-parse). Null until extracted.
+  extractedText    String?   @map("extracted_text") @db.Text
+  /// Library/version used for text extraction, e.g. "pdf-parse@1.1.1".
+  textExtractor    String?   @map("text_extractor") @db.VarChar(128)
+  extractedAt      DateTime? @map("extracted_at") @db.Timestamptz(6)
+  lastError        String?   @map("last_error") @db.Text
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@unique([corpusId, storagePath], map: "ix_corpus_files_corpus_path")
+  @@index([corpusId, contentSha256], map: "ix_corpus_files_corpus_sha")
+  @@map("corpus_files")
+}
