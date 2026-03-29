@@ -6,6 +6,7 @@
       "name": "helix-hypo-ws-get-db-setup",
       "dependencies": {
         "@prisma/client": "5.19.1",
+        "helix-ts": "^1.0.8",
         "pdf-parse": "^1.1.1",
       },
       "devDependencies": {
@@ -91,6 +92,8 @@
     "fsevents": ["fsevents@2.3.3", "", { "os": "darwin" }, "sha512-5xoDfX+fL7faATnagmWPpbFtwh/R77WmMMqqHGS65C3vvB0YHrgF+B1YmZ3441tMj5n63k0212XNoJwzlhffQw=="],
 
     "get-tsconfig": ["get-tsconfig@4.13.7", "", { "dependencies": { "resolve-pkg-maps": "1.0.0" } }, "sha512-7tN6rFgBlMgpBML5j8typ92BKFi2sFQvIdpAqLA2beia5avZDrMs0FLZiM5etShWq5irVyGcGMEA1jcDaK7A/Q=="],
+
+    "helix-ts": ["helix-ts@1.0.8", "", {}, "sha512-YPM3dLbzF8XPam9cVEXtdF0Mc/FCjDG68msZOcDb6tZWfQ7ZWOUVUHp5n5G9Be5Ekky3abgrrh/7WauwMzm1tw=="],
 
     "node-ensure": ["node-ensure@0.0.0", "", {}, "sha512-DRI60hzo2oKN1ma0ckc6nQWlHU69RH6xN0sjQTjMpChPfTYvKZdcQFfdYK2RWbJcKyUizSIy/l8OTGxMAM1QDw=="],
 
