@@ -4,7 +4,7 @@ queries = "./db/"
 container_runtime = "docker"
 
 [local.dev]
-port = 6969
+port = 6970
 build_mode = "dev"
 
 [cloud]

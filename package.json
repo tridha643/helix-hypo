@@ -10,7 +10,12 @@
     "studio": "prisma studio",
     "extract:pdf": "tsx src/extract-pdf-cli.ts",
     "ingest:pdf": "tsx src/ingest-pdf-file.ts",
-    "ingest:md": "tsx src/ingest-md-file.ts"
+    "ingest:md": "tsx src/ingest-md-file.ts",
+    "index": "tsx src/indexer/indexRepo.ts",
+    "test": "node --import tsx --test test/indexer/extractImports.test.ts test/indexer/resolveImport.test.ts test/indexer/walkGitTree.test.ts test/indexer/indexRepo.test.ts",
+    "test:integration": "tsx src/indexer/verifyIndexer.ts --integration-only",
+    "typecheck": "tsc --noEmit",
+    "verify": "tsx src/indexer/verifyIndexer.ts"
   },
   "dependencies": {
     "@prisma/client": "5.19.1",
