@@ -148,8 +148,10 @@ async function runUnitTests(workspaceRoot: string): Promise<void> {
       "--import",
       "tsx",
       "--test",
+      "test/indexer/dagAnalysis.test.ts",
       "test/indexer/extractImports.test.ts",
       "test/indexer/resolveImport.test.ts",
+      "test/indexer/walkGitTree.test.ts",
       "test/indexer/indexRepo.test.ts",
     ],
     { cwd: workspaceRoot }
@@ -162,7 +164,12 @@ function assertCountsMatch(summary: IndexSummary, expectations: Record<string, n
   assert.equal(summary.packageCount, expectations.packageCount);
   assert.equal(summary.containsDirectoryCount, expectations.containsDirectoryCount);
   assert.equal(summary.containsFileCount, expectations.containsFileCount);
+  assert.equal(summary.cycleCount, expectations.cycleCount);
+  assert.equal(summary.entryPointCount, expectations.entryPointCount);
   assert.equal(summary.importEdgeCount, expectations.importEdgeCount);
+  assert.equal(summary.leafDependencyCount, expectations.leafDependencyCount);
+  assert.equal(summary.maxDepDepth, expectations.maxDepDepth);
+  assert.equal(summary.orphanCount, expectations.orphanCount);
   assert.equal(summary.externalImportEdgeCount, expectations.externalImportEdgeCount);
 }
 

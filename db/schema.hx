@@ -6,11 +6,13 @@ N::File {
     tree_depth: I64,
     is_entry_point: Boolean,
     is_leaf_dep: Boolean,
+    // Orphans are dependency-tracked source files with no Imports edges.
     is_orphan: Boolean,
     is_in_cycle: Boolean,
     cycle_id: String,
     import_count: I64,
     imported_by_count: I64,
+    // -1 means dependency depth is unbounded because the file is in, or reaches, a cycle.
     dep_depth: I64,
     topo_order: I64,
 }

@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { walkGitTree } from "../../src/indexer/walkGitTree.js";
+import { assertStructuralTreeValid, walkGitTree } from "../../src/indexer/walkGitTree.js";
 import { runCommand } from "../../src/indexer/utils.js";
 
 test("walkGitTree includes untracked files but skips ignored files", async () => {
@@ -28,4 +28,39 @@ test("walkGitTree includes untracked files but skips ignored files", async () =>
   } finally {
     await rm(repoRoot, { force: true, recursive: true });
   }
+});
+
+test("assertStructuralTreeValid rejects duplicate file containment", () => {
+  assert.throws(
+    () =>
+      assertStructuralTreeValid({
+        containsDirectoryEdges: [],
+        containsFileEdges: [
+          { fileId: "src/a.ts", parentDirId: "src" },
+          { fileId: "src/a.ts", parentDirId: "" },
+        ],
+        directories: [
+          { dirId: "", fileCount: 0, totalFileCount: 1, treeDepth: 0 },
+          { dirId: "src", fileCount: 1, totalFileCount: 1, treeDepth: 1 },
+        ],
+        files: [{ fileId: "src/a.ts" }],
+      }),
+    /multiple parent directories/
+  );
+});
+
+test("assertStructuralTreeValid rejects disconnected directories", () => {
+  assert.throws(
+    () =>
+      assertStructuralTreeValid({
+        containsDirectoryEdges: [],
+        containsFileEdges: [{ fileId: "orphan/a.ts", parentDirId: "orphan" }],
+        directories: [
+          { dirId: "", fileCount: 0, totalFileCount: 1, treeDepth: 0 },
+          { dirId: "orphan", fileCount: 1, totalFileCount: 1, treeDepth: 1 },
+        ],
+        files: [{ fileId: "orphan/a.ts" }],
+      }),
+    /missing a parent/
+  );
 });

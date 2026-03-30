@@ -6,10 +6,15 @@ import { runCommand } from "./utils.js";
 type FixtureExpectations = {
   containsDirectoryCount: number;
   containsFileCount: number;
+  cycleCount: number;
   directoryCount: number;
+  entryPointCount: number;
   externalImportEdgeCount: number;
   fileCount: number;
   importEdgeCount: number;
+  leafDependencyCount: number;
+  maxDepDepth: number;
+  orphanCount: number;
   packageCount: number;
 };
 

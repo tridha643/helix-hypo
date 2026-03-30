@@ -116,8 +116,11 @@ async function buildDependencyEdges(repoStructure: RepoStructure): Promise<{
 export async function buildIndexModel(repoRoot: string): Promise<IndexModel> {
   const repoStructure = await walkGitTree(repoRoot);
   const { importEdges, externalImportEdges } = await buildDependencyEdges(repoStructure);
+  const dependencyTrackedFileIds = repoStructure.files
+    .filter((file) => SUPPORTED_SOURCE_EXTENSIONS.has(file.extension))
+    .map((file) => file.fileId);
   const dependencyAnalysis = analyzeDependencyGraph(
-    repoStructure.files.map((file) => file.fileId),
+    dependencyTrackedFileIds,
     importEdges
   );
 
@@ -200,6 +203,7 @@ function printHumanSummary(result: IndexRunResult): void {
     `Indexed ${summary.repoRoot}`,
     `files=${summary.fileCount} directories=${summary.directoryCount} packages=${summary.packageCount}`,
     `contains(file=${summary.containsFileCount}, dir=${summary.containsDirectoryCount}) imports=${summary.importEdgeCount} external_imports=${summary.externalImportEdgeCount}`,
+    `analysis(entry_points=${summary.entryPointCount}, leaf_deps=${summary.leafDependencyCount}, orphans=${summary.orphanCount}, cycles=${summary.cycleCount}, max_dep_depth=${summary.maxDepDepth})`,
   ];
 
   if (helixCounts) {

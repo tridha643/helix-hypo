@@ -1,4 +1,13 @@
-import type { DependencyAnalysis, ImportEdge } from "./types.js";
+import {
+  DEP_DEPTH_IN_CYCLE,
+  TOPO_ORDER_UNAVAILABLE,
+  type DependencyAnalysis,
+  type ImportEdge,
+} from "./types.js";
+
+// The topological order only covers the acyclic portion of the dependency graph.
+// Files in cycles are removed before Kahn's algorithm runs, so edges that touch a
+// cyclic vertex do not constrain the remaining order.
 
 function buildAdjacency(fileIds: string[], importEdges: ImportEdge[]): {
   adjacency: Map<string, Set<string>>;
@@ -135,7 +144,9 @@ export function analyzeDependencyGraph(
   const ready = acyclicFileIds
     .filter((fileId) => (topoIndegree.get(fileId) ?? 0) === 0)
     .sort((left, right) => left.localeCompare(right));
-  const topoOrderByFileId = new Map<string, number>(orderedFileIds.map((fileId) => [fileId, -1]));
+  const topoOrderByFileId = new Map<string, number>(
+    orderedFileIds.map((fileId) => [fileId, TOPO_ORDER_UNAVAILABLE])
+  );
   let topoIndex = 0;
 
   while (ready.length > 0) {
@@ -161,7 +172,7 @@ export function analyzeDependencyGraph(
 
   function computeDepth(fileId: string): number {
     if (inCycleFileIds.has(fileId)) {
-      return -1;
+      return DEP_DEPTH_IN_CYCLE;
     }
 
     const cached = depDepthByFileId.get(fileId);
@@ -178,14 +189,14 @@ export function analyzeDependencyGraph(
     let maxChildDepth = 0;
     for (const neighbor of neighbors) {
       if (inCycleFileIds.has(neighbor)) {
-        depDepthByFileId.set(fileId, -1);
-        return -1;
+        depDepthByFileId.set(fileId, DEP_DEPTH_IN_CYCLE);
+        return DEP_DEPTH_IN_CYCLE;
       }
 
       const childDepth = computeDepth(neighbor);
       if (childDepth < 0) {
-        depDepthByFileId.set(fileId, -1);
-        return -1;
+        depDepthByFileId.set(fileId, DEP_DEPTH_IN_CYCLE);
+        return DEP_DEPTH_IN_CYCLE;
       }
 
       maxChildDepth = Math.max(maxChildDepth, childDepth + 1);
@@ -197,7 +208,7 @@ export function analyzeDependencyGraph(
 
   for (const fileId of orderedFileIds) {
     if (inCycleFileIds.has(fileId)) {
-      depDepthByFileId.set(fileId, -1);
+      depDepthByFileId.set(fileId, DEP_DEPTH_IN_CYCLE);
     } else {
       computeDepth(fileId);
     }
