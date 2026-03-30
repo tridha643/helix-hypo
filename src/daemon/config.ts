@@ -18,6 +18,7 @@ export const LOCK_PATH = path.join(HELIX_DIR, "daemon.lock");
 export type HelixConfig = {
   apiKey: string | null;
   daemonLogLevel: string;
+  fuseMountPoint: string;
   helixUrl: string;
   indexBatchSize: number;
   pidPath: string;
@@ -36,8 +37,13 @@ type TomlHelixSection = {
   api_key?: string;
 };
 
+type TomlFuseSection = {
+  mount_point?: string;
+};
+
 type TomlConfig = {
   daemon?: TomlDaemonSection;
+  fuse?: TomlFuseSection;
   helix?: TomlHelixSection;
 };
 
@@ -46,6 +52,7 @@ type TomlConfig = {
 const DEFAULTS: HelixConfig = {
   apiKey: null,
   daemonLogLevel: "info",
+  fuseMountPoint: "/tmp/helix",
   helixUrl: "http://127.0.0.1:6970",
   indexBatchSize: 25,
   pidPath: PID_PATH,
@@ -87,6 +94,9 @@ function applyToml(config: HelixConfig, toml: TomlConfig): HelixConfig {
   }
   if (toml.daemon?.index_batch_size != null) {
     merged.indexBatchSize = toml.daemon.index_batch_size;
+  }
+  if (toml.fuse?.mount_point) {
+    merged.fuseMountPoint = toml.fuse.mount_point;
   }
 
   return merged;

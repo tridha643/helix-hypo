@@ -17,10 +17,13 @@
     "test:daemon": "bun test test/daemon/",
     "test:integration": "tsx src/indexer/verifyIndexer.ts --integration-only",
     "typecheck": "tsc --noEmit",
-    "verify": "tsx src/indexer/verifyIndexer.ts"
+    "verify": "tsx src/indexer/verifyIndexer.ts",
+    "mount": "node --import tsx src/fuse/mount.ts",
+    "test:fuse": "bun test test/fuse/"
   },
   "dependencies": {
     "@prisma/client": "5.19.1",
+    "fuse-native": "^2.2.6",
     "helix-ts": "^1.0.8",
     "pdf-parse": "^1.1.1",
     "smol-toml": "^1.6.1"

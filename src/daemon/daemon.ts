@@ -1,4 +1,7 @@
 import { unlinkSync } from "node:fs";
+import { spawn, type ChildProcess } from "node:child_process";
+import { fileURLToPath } from "node:url";
+import path from "node:path";
 
 import { HelixDB } from "helix-ts";
 
@@ -202,7 +205,105 @@ const handlers: Record<string, MethodHandler> = {
     const dirId = (params.dirId as string) ?? "";
     return helixQuery("ListDirectoryContents", { dir_id: dirId }, config.helixUrl, config.apiKey);
   },
+
+  async mount(params, config) {
+    if (fuseProcess) {
+      return { mounted: true, mountPoint: fuseMountPoint };
+    }
+
+    const repoRoot = params.repoRoot as string;
+    if (!repoRoot) {
+      throw new HandlerError("INVALID_PARAMS", "repoRoot is required");
+    }
+
+    const mountPoint = (params.mountPoint as string) ?? config.fuseMountPoint;
+
+    try {
+      await ensureHelixReachable(config.helixUrl);
+    } catch {
+      throw new HandlerError("HELIX_UNAVAILABLE", `Cannot reach HelixDB at ${config.helixUrl}`);
+    }
+
+    // Spawn Node.js process for FUSE mount (fuse-native requires Node, not Bun)
+    const thisFile = fileURLToPath(import.meta.url);
+    const mountScript = path.resolve(path.dirname(thisFile), "../fuse/mount.ts");
+
+    const env: Record<string, string> = { ...process.env as Record<string, string>, HELIX_URL: config.helixUrl };
+    if (config.apiKey) env.HELIX_API_KEY = config.apiKey;
+
+    return new Promise<unknown>((resolve, reject) => {
+      const child = spawn("node", ["--import", "tsx", mountScript, mountPoint, repoRoot], {
+        env,
+        stdio: ["ignore", "pipe", "pipe"],
+      });
+
+      let started = false;
+
+      child.stderr?.on("data", (chunk: Buffer) => {
+        const msg = chunk.toString();
+        log("info", `[fuse] ${msg.trim()}`);
+        if (!started && msg.includes("FUSE mounted")) {
+          started = true;
+          fuseProcess = child;
+          fuseMountPoint = mountPoint;
+          resolve({ mounted: true, mountPoint });
+        }
+      });
+
+      child.on("error", (err) => {
+        if (!started) reject(new HandlerError("FUSE_ERROR", err.message));
+      });
+
+      child.on("exit", (code) => {
+        fuseProcess = null;
+        fuseMountPoint = null;
+        if (!started) {
+          reject(new HandlerError("FUSE_ERROR", `Mount process exited with code ${code}`));
+        } else {
+          log("info", `FUSE process exited (code=${code})`);
+        }
+      });
+
+      // Timeout
+      setTimeout(() => {
+        if (!started) {
+          child.kill();
+          reject(new HandlerError("FUSE_TIMEOUT", "FUSE mount did not start within 15s"));
+        }
+      }, 15000);
+    });
+  },
+
+  async unmount() {
+    if (!fuseProcess) {
+      return { unmounted: true, wasRunning: false };
+    }
+
+    return new Promise<unknown>((resolve) => {
+      fuseProcess!.on("exit", () => {
+        fuseProcess = null;
+        fuseMountPoint = null;
+        resolve({ unmounted: true, wasRunning: true });
+      });
+      fuseProcess!.kill("SIGINT");
+
+      // Timeout — force kill if needed
+      setTimeout(() => {
+        if (fuseProcess) {
+          fuseProcess.kill("SIGKILL");
+          fuseProcess = null;
+          fuseMountPoint = null;
+          resolve({ unmounted: true, wasRunning: true, forced: true });
+        }
+      }, 5000);
+    });
+  },
 };
+
+// ── FUSE mount state ───────────────────────────────────────────────────────
+
+let fuseProcess: ChildProcess | null = null;
+let fuseMountPoint: string | null = null;
 
 // ── Handler error ───────────────────────────────────────────────────────────
 
@@ -275,6 +376,25 @@ let server: { close(): void } | null = null;
 
 async function shutdown(reason: string): Promise<void> {
   log("info", `Shutting down: ${reason}`);
+
+  // Unmount FUSE if running
+  if (fuseProcess) {
+    log("info", "Unmounting FUSE...");
+    fuseProcess.kill("SIGINT");
+    await new Promise<void>((resolve) => {
+      const timeout = setTimeout(() => {
+        if (fuseProcess) fuseProcess.kill("SIGKILL");
+        resolve();
+      }, 3000);
+      fuseProcess!.on("exit", () => {
+        clearTimeout(timeout);
+        resolve();
+      });
+    });
+    fuseProcess = null;
+    fuseMountPoint = null;
+  }
+
   if (server) {
     server.close();
     server = null;
