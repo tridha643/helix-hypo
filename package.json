@@ -1,5 +1,6 @@
 {
   "name": "helix-hypo-ws-get-db-setup",
+  "version": "0.1.0",
   "private": true,
   "packageManager": "bun@1.3.9",
   "type": "module",
@@ -13,6 +14,7 @@
     "ingest:md": "tsx src/ingest-md-file.ts",
     "index": "tsx src/indexer/indexRepo.ts",
     "test": "node --import tsx --test test/indexer/dagAnalysis.test.ts test/indexer/extractImports.test.ts test/indexer/resolveImport.test.ts test/indexer/walkGitTree.test.ts test/indexer/indexRepo.test.ts",
+    "test:daemon": "bun test test/daemon/",
     "test:integration": "tsx src/indexer/verifyIndexer.ts --integration-only",
     "typecheck": "tsc --noEmit",
     "verify": "tsx src/indexer/verifyIndexer.ts"
@@ -20,9 +22,11 @@
   "dependencies": {
     "@prisma/client": "5.19.1",
     "helix-ts": "^1.0.8",
-    "pdf-parse": "^1.1.1"
+    "pdf-parse": "^1.1.1",
+    "smol-toml": "^1.6.1"
   },
   "devDependencies": {
+    "@types/bun": "^1.3.11",
     "@types/node": "^22.10.0",
     "@types/pdf-parse": "^1.1.4",
     "prisma": "5.19.1",
