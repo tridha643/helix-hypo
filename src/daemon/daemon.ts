@@ -157,6 +157,34 @@ const handlers: Record<string, MethodHandler> = {
       throw new HandlerError("HELIX_UNAVAILABLE", `Cannot reach HelixDB at ${config.helixUrl}`);
     }
 
+    // Handle stats subcommand: aggregate multiple queries
+    if (subcommand === "stats") {
+      const [counts, entryPoints, leafDeps, orphans, cycles] = await Promise.all([
+        helixQuery("GetIndexCounts", {}, config.helixUrl, config.apiKey),
+        helixQuery("ListEntryPoints", {}, config.helixUrl, config.apiKey),
+        helixQuery("ListLeafDependencies", {}, config.helixUrl, config.apiKey),
+        helixQuery("ListOrphans", {}, config.helixUrl, config.apiKey),
+        helixQuery("ListCycles", {}, config.helixUrl, config.apiKey),
+      ]);
+
+      // HelixDB wraps list results as { files: [...] }
+      const unwrap = (r: unknown): unknown[] => {
+        if (Array.isArray(r)) return r;
+        if (r && typeof r === "object" && "files" in r) {
+          return (r as Record<string, unknown>).files as unknown[];
+        }
+        return [];
+      };
+
+      return {
+        counts,
+        cycles: unwrap(cycles).length,
+        entryPoints: unwrap(entryPoints).length,
+        leafDeps: unwrap(leafDeps).length,
+        orphans: unwrap(orphans).length,
+      };
+    }
+
     const queryParams = (params.params as Record<string, unknown>) ?? {};
 
     const validQueries: Record<string, string> = {
