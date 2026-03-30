@@ -1,9 +1,14 @@
 {
   "containsDirectoryCount": 2,
   "containsFileCount": 6,
+  "cycleCount": 1,
   "directoryCount": 3,
+  "entryPointCount": 1,
   "externalImportEdgeCount": 1,
   "fileCount": 6,
   "importEdgeCount": 4,
+  "leafDependencyCount": 1,
+  "maxDepDepth": 2,
+  "orphanCount": 0,
   "packageCount": 1
 }

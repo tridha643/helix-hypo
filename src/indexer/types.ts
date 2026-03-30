@@ -1,5 +1,8 @@
 export type ImportKind = "dynamic-import" | "export" | "import" | "require";
 
+export const DEP_DEPTH_IN_CYCLE = -1;
+export const TOPO_ORDER_UNAVAILABLE = -1;
+
 export type IndexFileNode = {
   absolutePath: string;
   content: string;
@@ -82,10 +85,15 @@ export type DependencyAnalysis = {
 export type IndexSummary = {
   containsDirectoryCount: number;
   containsFileCount: number;
+  cycleCount: number;
   directoryCount: number;
+  entryPointCount: number;
   externalImportEdgeCount: number;
   fileCount: number;
   importEdgeCount: number;
+  leafDependencyCount: number;
+  maxDepDepth: number;
+  orphanCount: number;
   packageCount: number;
   repoRoot: string;
 };

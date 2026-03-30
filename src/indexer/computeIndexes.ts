@@ -1,10 +1,12 @@
-import type {
-  DependencyAnalysis,
-  ExternalImportEdge,
-  IndexFileNode,
-  IndexModel,
-  ImportEdge,
-  RepoStructure,
+import {
+  DEP_DEPTH_IN_CYCLE,
+  TOPO_ORDER_UNAVAILABLE,
+  type DependencyAnalysis,
+  type ExternalImportEdge,
+  type IndexFileNode,
+  type IndexModel,
+  type ImportEdge,
+  type RepoStructure,
 } from "./types.js";
 import { SUPPORTED_SOURCE_EXTENSIONS } from "./utils.js";
 
@@ -47,10 +49,66 @@ function applyDependencyAnalysis(
       isEntryPoint: isDependencyTrackedSource && importedByCount === 0,
       isInCycle: analysis.inCycleFileIds.has(file.fileId),
       isLeafDep: isDependencyTrackedSource && importCount === 0,
-      isOrphan: importCount === 0 && importedByCount === 0,
-      topoOrder: isDependencyTrackedSource ? (analysis.topoOrderByFileId.get(file.fileId) ?? -1) : -1,
+      // "Orphan" is scoped to dependency-tracked source files so assets like
+      // fixture JSON and Markdown do not appear in dependency-graph views.
+      isOrphan: isDependencyTrackedSource && importCount === 0 && importedByCount === 0,
+      topoOrder: isDependencyTrackedSource
+        ? (analysis.topoOrderByFileId.get(file.fileId) ?? TOPO_ORDER_UNAVAILABLE)
+        : TOPO_ORDER_UNAVAILABLE,
     };
   });
+}
+
+function buildSummary(
+  repoStructure: RepoStructure,
+  files: IndexFileNode[],
+  importEdges: ImportEdge[],
+  externalImportEdges: ExternalImportEdge[],
+  packageCount: number
+): IndexModel["summary"] {
+  const cycleIds = new Set<string>();
+  let entryPointCount = 0;
+  let leafDependencyCount = 0;
+  let orphanCount = 0;
+  let maxDepDepth = 0;
+
+  for (const file of files) {
+    if (file.cycleId) {
+      cycleIds.add(file.cycleId);
+    }
+
+    if (file.isEntryPoint) {
+      entryPointCount += 1;
+    }
+
+    if (file.isLeafDep) {
+      leafDependencyCount += 1;
+    }
+
+    if (file.isOrphan) {
+      orphanCount += 1;
+    }
+
+    if (file.depDepth !== DEP_DEPTH_IN_CYCLE) {
+      maxDepDepth = Math.max(maxDepDepth, file.depDepth);
+    }
+  }
+
+  return {
+    containsDirectoryCount: repoStructure.containsDirectoryEdges.length,
+    containsFileCount: repoStructure.containsFileEdges.length,
+    cycleCount: cycleIds.size,
+    directoryCount: repoStructure.directories.length,
+    entryPointCount,
+    externalImportEdgeCount: externalImportEdges.length,
+    fileCount: files.length,
+    importEdgeCount: importEdges.length,
+    leafDependencyCount,
+    maxDepDepth,
+    orphanCount,
+    packageCount,
+    repoRoot: repoStructure.repoRoot,
+  };
 }
 
 export function computeIndexes(
@@ -71,15 +129,12 @@ export function computeIndexes(
     importEdges,
     packages,
     repoRoot: repoStructure.repoRoot,
-    summary: {
-      containsDirectoryCount: repoStructure.containsDirectoryEdges.length,
-      containsFileCount: repoStructure.containsFileEdges.length,
-      directoryCount: repoStructure.directories.length,
-      externalImportEdgeCount: externalImportEdges.length,
-      fileCount: files.length,
-      importEdgeCount: importEdges.length,
-      packageCount: packages.length,
-      repoRoot: repoStructure.repoRoot,
-    },
+    summary: buildSummary(
+      repoStructure,
+      files,
+      importEdges,
+      externalImportEdges,
+      packages.length
+    ),
   };
 }
