@@ -4,12 +4,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Three-part TypeScript pipeline running on **Bun** with **Prisma** ORM (strict mode, ES2022, NodeNext modules):
+Four-part TypeScript pipeline running on **Bun** with **Prisma** ORM (strict mode, ES2022, NodeNext modules):
 
 1. **Document ingestion** — CLI tools that ingest PDFs and Markdown into PostgreSQL (`CorpusFile` table).
 2. **Git repo indexer** — Walks a git repo's file tree, extracts JS/TS import edges, runs DAG analysis (topological sort, cycle detection, dependency depth), and syncs the resulting graph into **HelixDB**. The HelixDB graph (nodes: File, Directory, Package; edges: Imports, ImportsExternal, ContainsFile, ContainsDirectory) lets agents navigate repos via graph queries instead of grep/find.
 3. **Daemon** — An invisible background process (`src/daemon/`) that exposes the indexer and HelixDB queries over a Unix-domain socket IPC, with auto-start, version handshake, and graceful lifecycle management.
-
 4. **FUSE mount** — A read-only virtual filesystem (`src/fuse/`) that projects the HelixDB graph at `/tmp/helix/`. Agents can navigate dependencies with `ls`, `cat`, and `readlink` instead of grep/find. Requires FUSE-T and Node.js (not Bun) due to fuse-native's libuv dependency.
 
 ## Commands
