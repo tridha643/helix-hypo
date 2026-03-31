@@ -1,21 +1,29 @@
 import { hasFlag, getPositional } from "../args.js";
 import { dieUsage } from "../errors.js";
 import { writeJson, writeLines } from "../format.js";
-import { sendDaemonRequest } from "../../daemon/ipc.js";
+import { runInfoQuery } from "../../helixOps/index.js";
 
 const HELP = `Usage: helix info <file> [options]
 
-Show metadata for a file from the HelixDB index.
+Show indexed metadata for a single file. Includes: file_id, extension,
+size_bytes, import_count, imported_by_count, dep_depth (longest chain to
+a leaf), topo_order (position in topological sort), tree_depth, and
+boolean flags: is_entry_point, is_leaf_dep, is_orphan, is_in_cycle.
+
+Output (text): key: value pairs, one per line (content field excluded).
+Output (json): full file object including content.
+
+Requires: helix index (repo must be indexed first)
 
 Arguments:
   file    File path relative to repo root (e.g. src/app.ts)
 
 Options:
-  --json    Output as JSON
+  --json    Output as JSON (includes file content)
 
 Examples:
-  helix info src/app.ts
-  helix info src/app.ts --json`;
+  helix info src/app.ts                # Quick metadata overview
+  helix info src/app.ts --json         # Full metadata with content`;
 
 type InfoArgs = {
   fileId: string;
@@ -57,7 +65,7 @@ export async function run(args: string[]): Promise<void> {
 
   const parsed = parseArgs(args);
 
-  const result = await sendDaemonRequest("info", { fileId: parsed.fileId });
+  const result = await runInfoQuery(parsed.fileId, { repoRoot: process.cwd() });
   // HelixDB wraps single results: { file: {...} }
   const raw = (result ?? {}) as Record<string, unknown>;
   const info = (raw.file ?? raw) as FileInfo;

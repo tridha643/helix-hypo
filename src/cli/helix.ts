@@ -8,6 +8,7 @@ type CommandHandler = (args: string[]) => Promise<void>;
 
 const commands: Record<string, () => Promise<{ run: CommandHandler }>> = {
   deps:    () => import("./commands/deps.js"),
+  embed:   () => import("./commands/embed.js"),
   glob:    () => import("./commands/glob.js"),
   graph:   () => import("./commands/graph.js"),
   grep:    () => import("./commands/grep.js"),
@@ -24,7 +25,7 @@ const commands: Record<string, () => Promise<{ run: CommandHandler }>> = {
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
 
-  if (args.length === 0 || hasFlag(args, "--help") || hasFlag(args, "-h")) {
+  if (args.length === 0 || args[0] === "--help" || args[0] === "-h") {
     process.stdout.write(`${MAIN_HELP}\n`);
     return;
   }
@@ -60,5 +61,18 @@ main().catch((error) => {
   }
   const message = error instanceof Error ? error.message : String(error);
   process.stderr.write(`error: ${message}\n`);
+
+  // Add actionable hints for common cold-start errors
+  if (
+    message.includes("Helix query") &&
+    (message.includes("No value found") ||
+     message.includes("not found") ||
+     message.includes("does not exist"))
+  ) {
+    process.stderr.write(
+      "\nhint: This repo may not be indexed yet. Run: helix index .\n"
+    );
+  }
+
   process.exitCode = 1;
 });

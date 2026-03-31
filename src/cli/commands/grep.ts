@@ -1,24 +1,36 @@
 import { hasFlag, getOption, getPositional } from "../args.js";
 import { dieUsage } from "../errors.js";
 import { writeJson, writeLines } from "../format.js";
-import { sendDaemonRequest } from "../../daemon/ipc.js";
+import { runDepsQuery, runHelixQuery } from "../../helixOps/index.js";
 
 const HELP = `Usage: helix grep <query> [options]
 
-Search file content using BM25 full-text search.
+BM25 full-text search over indexed file content. Unlike filesystem grep,
+this searches the content stored in HelixDB at index time and ranks
+results by relevance score.
+
+Use --scope to restrict search to a file's dependency neighborhood:
+  deps-of:<file>     Search only files that <file> imports.
+  imports-of:<file>  Search only files that import <file>.
+
+Output (text): file paths with relevance scores (e.g. src/app.ts  [0.8234]).
+Output (json): array of { file_id, score } objects.
+
+Requires: helix index (repo must be indexed first)
 
 Arguments:
-  query    Search term
+  query    Search term (matched against full file content)
 
 Options:
-  --scope <expr>    Scope search to dependencies: deps-of:<file> or imports-of:<file>
+  --scope <expr>    Scope search: deps-of:<file> or imports-of:<file>
   --limit N         Maximum results (default: 20)
   --json            Output as JSON
 
 Examples:
-  helix grep "import"
-  helix grep "useState" --limit 10
-  helix grep "fetch" --scope deps-of:src/app.ts --json`;
+  helix grep "fetchUser"                              # Search all files
+  helix grep "useState" --limit 5                     # Top 5 matches
+  helix grep "auth" --scope deps-of:src/api.ts        # Search api.ts deps
+  helix grep "render" --scope imports-of:src/ui.ts     # Search ui.ts importers`;
 
 type GrepArgs = {
   json: boolean;
@@ -74,9 +86,8 @@ export async function run(args: string[]): Promise<void> {
   if (parsed.scope) {
     // Get the scoped file set first
     const reverse = parsed.scope.type === "imports-of";
-    const depsResult = await sendDaemonRequest("deps", {
-      fileId: parsed.scope.file,
-      reverse,
+    const depsResult = await runDepsQuery(parsed.scope.file, reverse, {
+      repoRoot: process.cwd(),
     });
 
     // Unwrap { edges: [...] } wrapper from HelixDB
@@ -103,15 +114,17 @@ export async function run(args: string[]): Promise<void> {
     }
 
     // Search within the scoped files
-    result = await sendDaemonRequest("query", {
-      params: { file_ids: fileIds, query: parsed.query },
-      queryName: "SearchFileContentScoped",
-    });
+    result = await runHelixQuery(
+      "SearchFileContentScoped",
+      { file_ids: fileIds, query: parsed.query },
+      { repoRoot: process.cwd() }
+    );
   } else {
-    result = await sendDaemonRequest("query", {
-      params: { limit: parsed.limit, query: parsed.query },
-      queryName: "SearchFileContent",
-    });
+    result = await runHelixQuery(
+      "SearchFileContent",
+      { limit: parsed.limit, query: parsed.query },
+      { repoRoot: process.cwd() }
+    );
   }
 
   // Unwrap HelixDB wrappers: { results: [...] }, { scoped: [...] }, or array

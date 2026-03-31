@@ -1,11 +1,19 @@
 import { hasFlag, getPositional } from "../args.js";
 import { die, dieUsage } from "../errors.js";
 import { writeJson, writeLines } from "../format.js";
-import { sendDaemonRequest } from "../../daemon/ipc.js";
+import { runDepsQuery } from "../../helixOps/index.js";
 
 const HELP = `Usage: helix deps <file> [options]
 
-List dependencies of a file, or files that depend on it.
+Show the import graph edges for a single file. By default lists all files
+that <file> imports (outgoing edges). With --reverse, lists all files
+that import <file> (incoming edges).
+
+Output (text): one file path per line.
+Output (json): array of edge objects with to_file_id/from_file_id,
+  specifier (the import path as written), and names (named imports).
+
+Requires: helix index (repo must be indexed first)
 
 Arguments:
   file    File path relative to repo root (e.g. src/app.ts)
@@ -15,9 +23,9 @@ Options:
   --json       Output as JSON
 
 Examples:
-  helix deps src/app.ts
-  helix deps src/app.ts --reverse
-  helix deps src/app.ts --json`;
+  helix deps src/app.ts                # What does app.ts import?
+  helix deps src/app.ts --reverse      # What files import app.ts?
+  helix deps src/app.ts --json         # Machine-readable edge list`;
 
 type DepsArgs = {
   fileId: string;
@@ -79,9 +87,8 @@ export async function run(args: string[]): Promise<void> {
 
   const parsed = parseArgs(args);
 
-  const result = await sendDaemonRequest("deps", {
-    fileId: parsed.fileId,
-    reverse: parsed.reverse,
+  const result = await runDepsQuery(parsed.fileId, parsed.reverse, {
+    repoRoot: process.cwd(),
   });
 
   const edges = unwrapEdges(result);

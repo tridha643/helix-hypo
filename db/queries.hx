@@ -1,7 +1,12 @@
 QUERY ClearRepoGraph() =>
+    DROP V<FileEmbedding>
     DROP N<File>
     DROP N<Package>
     DROP N<Directory>
+    RETURN "ok"
+
+QUERY ClearFileEmbeddings() =>
+    DROP V<FileEmbedding>
     RETURN "ok"
 
 QUERY CreateFile(
@@ -97,6 +102,7 @@ QUERY GetIndexCounts() =>
     contains_files <- E<ContainsFile>::COUNT
     imports <- E<Imports>::COUNT
     imports_external <- E<ImportsExternal>::COUNT
+    embeddings <- V<FileEmbedding>::COUNT
     RETURN {
         files: files,
         directories: directories,
@@ -104,8 +110,20 @@ QUERY GetIndexCounts() =>
         contains_directories: contains_directories,
         contains_files: contains_files,
         imports: imports,
-        imports_external: imports_external
+        imports_external: imports_external,
+        embeddings: embeddings
     }
+
+QUERY CreateFileEmbedding(file_id: String, vector: [F64]) =>
+    vector_node <- AddV<FileEmbedding>(vector, {
+        file_id: file_id,
+        model: "universal-sentence-encoder-512"
+    })
+    RETURN vector_node
+
+QUERY SearchFileEmbeddings(query_vector: [F64], limit: I64) =>
+    results <- SearchV<FileEmbedding>(query_vector, limit)
+    RETURN results
 
 QUERY ListFiles() =>
     files <- N<File>::ORDER<Asc>(_::{file_id})

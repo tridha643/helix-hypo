@@ -2,34 +2,43 @@ import path from "node:path";
 
 import { hasFlag, getOption, getPositional } from "../args.js";
 import { writeJson, writeLines } from "../format.js";
-import { sendDaemonRequest } from "../../daemon/ipc.js";
+import { runHelixQuery, runIndex } from "../../helixOps/index.js";
 
 const HELP = `Usage: helix index [path] [options]
        helix reindex [path] [options]
 
-Index a git repository into HelixDB. Reindex is an alias that performs
-the same full rebuild.
+Build the full graph index for a git repository and sync it to HelixDB.
+This is the first command to run — all query commands depend on it.
+
+Pipeline: git ls-files -> extract JS/TS imports -> resolve import paths ->
+  DAG analysis (Tarjan SCC, topo sort, dep depth) -> sync nodes/edges to
+  HelixDB -> compute file embeddings (TF.js Universal Sentence Encoder).
+
+The index replaces any previous data in HelixDB for this repo. Reindex is
+an alias that performs the same full rebuild.
 
 Arguments:
   path    Repository path (default: current directory)
 
 Options:
-  --status           Show current index counts instead of indexing
-  --api-key <key>    HelixDB API key
-  --helix-url <url>  HelixDB URL
-  --no-deploy        Skip deploying queries to HelixDB
+  --status           Show current index counts without re-indexing
+  --api-key <key>    HelixDB API key (overrides config/env)
+  --helix-url <url>  HelixDB URL (default: http://127.0.0.1:6969)
+  --no-deploy        Skip deploying schema/queries to HelixDB
+  --no-embed         Skip the embedding pass (faster, graph-only sync)
   --json             Output as JSON
 
 Examples:
-  helix index
-  helix index /path/to/repo
-  helix index --status
-  helix index --json
-  helix reindex .`;
+  helix index                          # Index current repo
+  helix index /path/to/repo            # Index a different repo
+  helix index . --no-embed             # Fast graph-only index
+  helix index --status                 # Check what's already indexed
+  helix index --status --json          # Machine-readable index counts`;
 
 type IndexArgs = {
   apiKey: string | null;
   deploy: boolean;
+  embedFiles: boolean;
   helixUrl: string | null;
   json: boolean;
   repoRoot: string;
@@ -43,6 +52,7 @@ export function parseArgs(args: string[]): IndexArgs {
   const json = hasFlag(args, "--json");
   const statusOnly = hasFlag(args, "--status");
   const noDeploy = hasFlag(args, "--no-deploy");
+  const noEmbed = hasFlag(args, "--no-embed");
   const apiKey = getOption(args, "--api-key");
   const helixUrl = getOption(args, "--helix-url");
   const positional = getPositional(args);
@@ -52,6 +62,7 @@ export function parseArgs(args: string[]): IndexArgs {
   return {
     apiKey,
     deploy: !noDeploy,
+    embedFiles: !noEmbed,
     helixUrl,
     json,
     repoRoot,
@@ -60,12 +71,12 @@ export function parseArgs(args: string[]): IndexArgs {
 }
 
 type IndexSummary = {
-  summary: Record<string, unknown>;
   helixCounts?: Record<string, unknown>;
+  summary: Record<string, unknown>;
 };
 
 export function formatText(result: IndexSummary): string[] {
-  const { summary } = result;
+  const { helixCounts, summary } = result;
   const lines: string[] = [];
 
   lines.push(`Indexed ${summary.repoRoot ?? "repository"}`);
@@ -78,6 +89,15 @@ export function formatText(result: IndexSummary): string[] {
   lines.push(
     `entry_points=${summary.entryPointCount ?? 0} leaf_deps=${summary.leafDependencyCount ?? 0} orphans=${summary.orphanCount ?? 0} cycles=${summary.cycleCount ?? 0}`
   );
+
+  if (helixCounts && typeof helixCounts === "object") {
+    const h = helixCounts as Record<string, unknown>;
+    const emb = h.embeddings;
+    const embPart = emb !== undefined ? ` embeddings=${emb}` : "";
+    lines.push(
+      `helix(files=${h.files ?? 0}, directories=${h.directories ?? 0}, packages=${h.packages ?? 0}, imports=${h.imports ?? 0}, external_imports=${h.imports_external ?? 0}${embPart})`
+    );
+  }
 
   return lines;
 }
@@ -99,10 +119,15 @@ export async function run(args: string[]): Promise<void> {
   const parsed = parseArgs(args);
 
   if (parsed.statusOnly) {
-    const result = await sendDaemonRequest("query", {
-      queryName: "GetIndexCounts",
-      params: {},
-    });
+    const result = await runHelixQuery(
+      "GetIndexCounts",
+      {},
+      {
+        apiKey: parsed.apiKey,
+        helixUrl: parsed.helixUrl,
+        repoRoot: parsed.repoRoot,
+      }
+    );
 
     if (parsed.json) {
       writeJson(result);
@@ -112,12 +137,13 @@ export async function run(args: string[]): Promise<void> {
     return;
   }
 
-  const params: Record<string, unknown> = { repoRoot: parsed.repoRoot };
-  if (parsed.apiKey) params.apiKey = parsed.apiKey;
-  if (parsed.helixUrl) params.helixUrl = parsed.helixUrl;
-  if (!parsed.deploy) params.deploy = false;
-
-  const result = (await sendDaemonRequest("index", params)) as IndexSummary;
+  const result = (await runIndex({
+    apiKey: parsed.apiKey,
+    deployQueries: parsed.deploy,
+    embedFiles: parsed.embedFiles,
+    helixUrl: parsed.helixUrl,
+    repoRoot: parsed.repoRoot,
+  })) as IndexSummary;
 
   if (parsed.json) {
     writeJson(result);

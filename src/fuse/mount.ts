@@ -857,7 +857,7 @@ async function main(): Promise<void> {
   // Import HelixDB client
   const { createHelixClient, ensureHelixReachable } = await import("../indexer/syncToHelix.js");
 
-  const helixUrl = process.env.HELIX_URL ?? "http://127.0.0.1:6970";
+  const helixUrl = process.env.HELIX_URL ?? "http://127.0.0.1:6969";
   const apiKey = process.env.HELIX_API_KEY ?? null;
 
   await ensureHelixReachable(helixUrl);

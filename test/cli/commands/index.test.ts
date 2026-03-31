@@ -11,6 +11,13 @@ describe("index parseArgs", () => {
     expect(result.json).toBe(false);
     expect(result.statusOnly).toBe(false);
     expect(result.deploy).toBe(true);
+    expect(result.embedFiles).toBe(true);
+  });
+
+  test("parses --no-embed flag", () => {
+    const args = ["--no-embed"];
+    const result = parseArgs(args);
+    expect(result.embedFiles).toBe(false);
   });
 
   test("parses positional path", () => {

@@ -1,22 +1,29 @@
 import { hasFlag, getPositional } from "../args.js";
 import { dieUsage } from "../errors.js";
 import { writeJson, writeLines } from "../format.js";
-import { sendDaemonRequest } from "../../daemon/ipc.js";
+import { runHelixQuery } from "../../helixOps/index.js";
 
 const HELP = `Usage: helix glob <pattern> [options]
 
-Match files in the index by glob pattern.
+Match indexed file paths against a glob pattern. Searches file IDs in
+HelixDB (not the filesystem), so only files present at index time are
+matched. Supports ** (any path), * (any segment), and ? (any char).
+
+Output (text): matching file paths, sorted alphabetically, one per line.
+Output (json): array of matching file path strings.
+
+Requires: helix index (repo must be indexed first)
 
 Arguments:
-  pattern    Glob pattern (e.g. **/*.ts, src/*.test.ts)
+  pattern    Glob pattern (e.g. **/*.ts, src/**/*.test.ts)
 
 Options:
   --json    Output as JSON
 
 Examples:
-  helix glob "**/*.ts"
-  helix glob "src/**/*.test.ts"
-  helix glob "*.json" --json`;
+  helix glob "**/*.ts"                 # All TypeScript files
+  helix glob "src/**/*.test.ts"        # Test files under src/
+  helix glob "*.json" --json           # Root-level JSON files`;
 
 type GlobArgs = {
   json: boolean;
@@ -87,10 +94,7 @@ export async function run(args: string[]): Promise<void> {
   const parsed = parseArgs(args);
   const regex = globToRegex(parsed.pattern);
 
-  const result = await sendDaemonRequest("query", {
-    params: {},
-    queryName: "ListFiles",
-  });
+  const result = await runHelixQuery("ListFiles", {}, { repoRoot: process.cwd() });
 
   // Unwrap { files: [...] } wrapper from HelixDB
   let items: unknown[];

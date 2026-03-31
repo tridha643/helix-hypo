@@ -10,7 +10,7 @@ test("loadConfig returns defaults when no config files exist", () => {
   // Use a nonexistent repo root so no project config is found
   const config = loadConfig("/tmp/nonexistent-repo-root-" + Date.now());
 
-  assert.equal(config.helixUrl, "http://127.0.0.1:6970");
+  assert.equal(config.helixUrl, "http://127.0.0.1:6969");
   assert.equal(config.daemonLogLevel, "info");
   assert.equal(config.indexBatchSize, 25);
   assert.equal(config.apiKey, null);

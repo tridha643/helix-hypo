@@ -1,10 +1,24 @@
 import { hasFlag, getPositional } from "../args.js";
 import { writeJson, writeLines } from "../format.js";
+import { ensureDaemonRunning, getDaemonStatus } from "../../daemon/lifecycle.js";
 import { sendDaemonRequest } from "../../daemon/ipc.js";
 
-const MOUNT_HELP = `Usage: helix mount [mountpoint]
+const MOUNT_HELP = `Usage: helix mount [mountpoint] [options]
 
-Mount the FUSE virtual filesystem. Requires FUSE-T and HelixDB running.
+Mount a read-only FUSE virtual filesystem that projects the HelixDB graph.
+Agents can navigate dependencies with ls/cat/readlink instead of queries.
+
+Layout at the mount point:
+  /files/<id>/content        File content
+  /files/<id>/imports/       Symlinks to imported files
+  /files/<id>/imported-by/   Symlinks to files that import this one
+  /tree/                     Mirrors repo directory structure
+  /index/entry-points/       Symlinks to entry point files
+  /index/cycles/             Cycle subdirectories
+  /stats.json                Index summary
+
+Requires: FUSE-T installed, HelixDB running, repo indexed.
+Auto-starts the helix daemon if not already running.
 
 Arguments:
   mountpoint    Mount path (default: /tmp/helix)
@@ -13,12 +27,12 @@ Options:
   --json    Output as JSON
 
 Examples:
-  helix mount
-  helix mount /tmp/my-mount`;
+  helix mount                          # Mount at /tmp/helix
+  helix mount /tmp/my-mount            # Custom mount point`;
 
-const UNMOUNT_HELP = `Usage: helix unmount
+const UNMOUNT_HELP = `Usage: helix unmount [options]
 
-Unmount the FUSE virtual filesystem.
+Unmount the FUSE virtual filesystem and stop the mount process.
 
 Options:
   --json    Output as JSON
@@ -38,6 +52,17 @@ export async function run(args: string[]): Promise<void> {
   const json = hasFlag(args, "--json");
 
   if (isUnmount) {
+    const daemonStatus = await getDaemonStatus();
+    if (!daemonStatus.running || !daemonStatus.socketResponsive) {
+      const result = { unmounted: true, wasRunning: false };
+      if (json) {
+        writeJson(result);
+      } else {
+        writeLines(["Nothing mounted."]);
+      }
+      return;
+    }
+
     const result = await sendDaemonRequest("unmount", {});
 
     if (json) {
@@ -49,6 +74,7 @@ export async function run(args: string[]): Promise<void> {
   }
 
   const mountPoint = getPositional(args) ?? "/tmp/helix";
+  await ensureDaemonRunning();
   const result = await sendDaemonRequest("mount", {
     mountPoint,
     repoRoot: process.cwd(),

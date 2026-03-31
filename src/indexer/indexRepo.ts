@@ -11,9 +11,11 @@ import type { ExternalImportEdge, ImportEdge, IndexModel, IndexRunResult, RepoSt
 import { SUPPORTED_SOURCE_EXTENSIONS } from "./utils.js";
 import { walkGitTree } from "./walkGitTree.js";
 
-type IndexRepositoryOptions = {
+export type IndexRepositoryOptions = {
   apiKey?: string | null;
   deployQueries?: boolean;
+  /** When true (default), run local TF.js embeddings after graph sync (Orama-style USE → HelixDB vectors). */
+  embedFiles?: boolean;
   helixUrl?: string;
   repoRoot: string;
   syncToDb?: boolean;
@@ -137,6 +139,7 @@ export async function indexRepository(
       : await syncToHelix(model, {
           apiKey: options.apiKey,
           deployQueries: options.deployQueries,
+          embedFiles: options.embedFiles,
           helixUrl: options.helixUrl,
         });
 
@@ -207,8 +210,10 @@ function printHumanSummary(result: IndexRunResult): void {
   ];
 
   if (helixCounts) {
+    const emb =
+      helixCounts.embeddings !== undefined ? ` embeddings=${helixCounts.embeddings}` : "";
     lines.push(
-      `helix(files=${helixCounts.files}, directories=${helixCounts.directories}, packages=${helixCounts.packages}, imports=${helixCounts.imports}, external_imports=${helixCounts.imports_external})`
+      `helix(files=${helixCounts.files}, directories=${helixCounts.directories}, packages=${helixCounts.packages}, imports=${helixCounts.imports}, external_imports=${helixCounts.imports_external}${emb})`
     );
   }
 

@@ -1,21 +1,28 @@
 import { hasFlag, getPositional } from "../args.js";
 import { writeJson, writeLines } from "../format.js";
-import { sendDaemonRequest } from "../../daemon/ipc.js";
+import { runTreeQuery } from "../../helixOps/index.js";
 
 const HELP = `Usage: helix tree [path] [options]
 
-List directory contents from the HelixDB index.
+List directory contents from the indexed graph. Works like 'ls' but reads
+from HelixDB, not the filesystem. Shows directories (with trailing /) and
+files at the given path.
+
+Output (text): sorted list, directories first (suffixed with /), then files.
+Output (json): { directories: [...], files: [...] } with full metadata.
+
+Requires: helix index (repo must be indexed first)
 
 Arguments:
-  path    Directory path relative to repo root (default: root)
+  path    Directory path relative to repo root (default: repo root)
 
 Options:
-  --json    Output as JSON
+  --json    Output as JSON (includes full file/directory metadata)
 
 Examples:
-  helix tree
-  helix tree src
-  helix tree src/cli --json`;
+  helix tree                           # List repo root
+  helix tree src                       # List src/ contents
+  helix tree src/cli --json            # Machine-readable directory listing`;
 
 type TreeArgs = {
   dirId: string;
@@ -63,7 +70,7 @@ export async function run(args: string[]): Promise<void> {
 
   const parsed = parseArgs(args);
 
-  const result = await sendDaemonRequest("tree", { dirId: parsed.dirId });
+  const result = await runTreeQuery(parsed.dirId, { repoRoot: process.cwd() });
   const treeResult = (result ?? {}) as TreeResult;
 
   if (parsed.json) {
