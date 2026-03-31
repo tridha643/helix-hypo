@@ -54,7 +54,7 @@ node --import tsx --test test/indexer/dagAnalysis.test.ts
 node --import tsx --test --test-name-pattern "buildIndexModel indexes" test/indexer/indexRepo.test.ts
 ```
 
-Run `bun run verify` when touching Helix sync or fixture-driven integration behavior (requires HelixDB running on port 6970).
+Run `bun run verify` when touching Helix sync or fixture-driven integration behavior (requires HelixDB running on port 6969).
 
 ## Architecture
 
@@ -117,7 +117,7 @@ Three CLI entry points (`extract-pdf-cli.ts`, `ingest-pdf-file.ts`, `ingest-md-f
 ## Key Configuration
 
 - **Database:** PostgreSQL via `DATABASE_URL`. Schema in `prisma/schema.prisma`. `CorpusFile` has unique constraint on `(corpusId, storagePath)`.
-- **HelixDB:** Project config in `helix.toml`, graph schema in `db/schema.hx`, queries in `db/queries.hx`. Dev server on port 6970. Env vars: `HELIX_URL` (default `http://127.0.0.1:6970`), `HELIX_API_KEY`.
+- **HelixDB:** Project config in `helix.toml`, graph schema in `db/schema.hx`, queries in `db/queries.hx`. Dev server on port 6969. Env vars: `HELIX_URL` (default `http://127.0.0.1:6969`), `HELIX_API_KEY`.
 - **Daemon config:** TOML files at `~/.helix/config.toml` (global) and `<repo>/.helix/config.toml` (project). Supports `[helix]` (url, api_key), `[daemon]` (log_level, socket_path, pid_path, index_batch_size), and `[fuse]` (mount_point) sections. Env vars `HELIX_URL` and `HELIX_API_KEY` override TOML.
 - **Env vars:** Copy `.env.example` → `.env`. Required: `DATABASE_URL` (for ingestion). Optional: `CORPUS_ID`, `STORAGE_PATH`, `OPENAI_API_KEY`, `HELIX_URL`, `HELIX_API_KEY`.
 

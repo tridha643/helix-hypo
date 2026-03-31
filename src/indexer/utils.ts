@@ -5,7 +5,7 @@ import { promisify } from "node:util";
 
 const execFileAsync = promisify(execFile);
 
-export const HELIX_DEFAULT_URL = "http://127.0.0.1:6970";
+export const HELIX_DEFAULT_URL = "http://127.0.0.1:6969";
 export const MAX_INDEXED_CONTENT_BYTES = 100 * 1024;
 export const SUPPORTED_SOURCE_EXTENSIONS = new Set([".js", ".jsx", ".ts", ".tsx"]);
 export const RESOLUTION_EXTENSIONS = [".ts", ".tsx", ".js", ".jsx"];

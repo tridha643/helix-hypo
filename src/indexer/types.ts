@@ -114,6 +114,7 @@ export type HelixIndexCounts = {
   contains_directories: number;
   contains_files: number;
   directories: number;
+  embeddings?: number;
   files: number;
   imports: number;
   imports_external: number;

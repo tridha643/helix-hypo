@@ -213,11 +213,7 @@ export async function sendDaemonRequest(
 ): Promise<unknown> {
   const socketPath = options.socketPath ?? SOCKET_PATH;
   const timeoutMs = options.timeoutMs ?? 60_000;
-  // Lazy import to avoid circular dependency — lifecycle imports from ipc
-  const { ensureDaemonRunning } = await import("./lifecycle.js");
   const { getPackageVersion } = await import("./config.js");
-
-  await ensureDaemonRunning();
 
   const version = getPackageVersion();
   const request: IpcRequest = {
@@ -227,13 +223,12 @@ export async function sendDaemonRequest(
     version,
   };
 
-  let response = await rawSend(socketPath, request, timeoutMs);
-
-  // Auto-restart on version mismatch, retry once
-  if (!response.ok && response.error?.code === "VERSION_MISMATCH") {
-    const { restartDaemon } = await import("./lifecycle.js");
-    await restartDaemon();
+  let response: IpcResponse;
+  try {
     response = await rawSend(socketPath, request, timeoutMs);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`Cannot reach Helix daemon at ${socketPath}: ${message}`);
   }
 
   if (!response.ok) {

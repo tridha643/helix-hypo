@@ -11,8 +11,9 @@ describe("helix CLI entry point", () => {
     });
     const stdout = await new Response(proc.stdout).text();
     expect(proc.exitCode ?? (await proc.exited)).toBe(0);
-    expect(stdout).toContain("Commands:");
-    expect(stdout).toContain("Examples:");
+    expect(stdout).toContain("Setup commands:");
+    expect(stdout).toContain("Query commands");
+    expect(stdout).toContain("Common workflows:");
   });
 
   test("-h prints usage", async () => {
@@ -23,7 +24,7 @@ describe("helix CLI entry point", () => {
     });
     const stdout = await new Response(proc.stdout).text();
     expect(proc.exitCode ?? (await proc.exited)).toBe(0);
-    expect(stdout).toContain("Commands:");
+    expect(stdout).toContain("Setup commands:");
   });
 
   test("no args prints usage", async () => {
@@ -34,7 +35,7 @@ describe("helix CLI entry point", () => {
     });
     const stdout = await new Response(proc.stdout).text();
     expect(proc.exitCode ?? (await proc.exited)).toBe(0);
-    expect(stdout).toContain("Commands:");
+    expect(stdout).toContain("Setup commands:");
   });
 
   test("unknown command exits 1 with error", async () => {
@@ -52,7 +53,7 @@ describe("helix CLI entry point", () => {
 
   test("MAIN_HELP contains all commands", () => {
     const expected = [
-      "index", "reindex", "status", "version", "deps", "info",
+      "index", "reindex", "embed", "status", "version", "deps", "info",
       "tree", "graph", "grep", "glob", "mount", "unmount",
     ];
     for (const cmd of expected) {

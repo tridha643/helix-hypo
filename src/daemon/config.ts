@@ -53,7 +53,7 @@ const DEFAULTS: HelixConfig = {
   apiKey: null,
   daemonLogLevel: "info",
   fuseMountPoint: "/tmp/helix",
-  helixUrl: "http://127.0.0.1:6970",
+  helixUrl: "http://127.0.0.1:6969",
   indexBatchSize: 25,
   pidPath: PID_PATH,
   socketPath: SOCKET_PATH,

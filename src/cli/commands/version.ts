@@ -1,15 +1,20 @@
 import { hasFlag } from "../args.js";
 import { writeJson, writeLines } from "../format.js";
 import { getPackageVersion } from "../../daemon/config.js";
+import { getDaemonStatus } from "../../daemon/lifecycle.js";
 import { sendDaemonRequest } from "../../daemon/ipc.js";
 
-const HELP = `Usage: helix version
+const HELP = `Usage: helix version [options]
 
-Show CLI and daemon version information.
+Show CLI version and daemon version (if the daemon is running).
+The daemon is an optional background process used for FUSE mounts.
+
+Options:
+  --json    Output as JSON
 
 Examples:
-  helix version
-  helix version --json`;
+  helix version                        # Show version info
+  helix version --json                 # Machine-readable version`;
 
 type VersionResult = {
   cli: string;
@@ -36,14 +41,17 @@ export async function run(args: string[]): Promise<void> {
   const cliVersion = getPackageVersion();
 
   let daemon: VersionResult["daemon"] = null;
-  try {
-    const status = (await sendDaemonRequest("status", {})) as {
-      pid: number;
-      version: string;
-    };
-    daemon = { pid: status.pid, version: status.version };
-  } catch {
-    // Daemon not running — that's fine
+  const daemonStatus = await getDaemonStatus();
+  if (daemonStatus.running && daemonStatus.socketResponsive) {
+    try {
+      const status = (await sendDaemonRequest("status", {})) as {
+        pid: number;
+        version: string;
+      };
+      daemon = { pid: status.pid, version: status.version };
+    } catch {
+      // Ignore daemon probe failures here — version output still useful.
+    }
   }
 
   const result: VersionResult = { cli: cliVersion, daemon };

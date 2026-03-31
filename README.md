@@ -15,7 +15,7 @@ A CLI and daemon for indexing git repositories into [HelixDB](https://helixdb.cl
 ### Prerequisites
 
 - [Bun](https://bun.sh) >= 1.0.0
-- [HelixDB](https://helixdb.cloud) running locally (default: `http://127.0.0.1:6970`)
+- [HelixDB](https://helixdb.cloud) running locally (default: `http://127.0.0.1:6969`)
 - PostgreSQL (only needed for document ingestion features)
 
 ### From npm
@@ -160,7 +160,7 @@ Example `.helix/config.toml`:
 
 ```toml
 [helix]
-url = "http://127.0.0.1:6970"
+url = "http://127.0.0.1:6969"
 api_key = "your-key"
 
 [daemon]

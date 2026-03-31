@@ -3,30 +3,60 @@ import { describe, expect, test } from "bun:test";
 import { formatText } from "../../../src/cli/commands/status.js";
 
 describe("status formatText", () => {
-  test("formats status with hours", () => {
+  test("formats reachable Helix status with coverage", () => {
     const result = {
-      pid: 12345,
-      startedAt: Date.now() - 3661000,
-      uptime: 3661000,
-      version: "0.1.0",
+      counts: {
+        contains_directories: 4,
+        contains_files: 8,
+        directories: 3,
+        embeddings: 6,
+        files: 8,
+        imports: 10,
+        imports_external: 2,
+        packages: 1,
+      },
+      daemon: {
+        pid: 12345,
+        running: true,
+        socketResponsive: true,
+      },
+      embeddingCoverage: {
+        embeddedFiles: 6,
+        missingFiles: 2,
+        percent: 75,
+        totalFiles: 8,
+      },
+      error: null,
+      helixUrl: "http://127.0.0.1:6969",
+      reachable: true,
     };
     const lines = formatText(result);
-    expect(lines[0]).toBe("pid:     12345");
-    expect(lines[1]).toContain("1h");
-    expect(lines[1]).toContain("1m");
-    expect(lines[1]).toContain("1s");
-    expect(lines[2]).toBe("version: 0.1.0");
+    expect(lines[0]).toContain("http://127.0.0.1:6969");
+    expect(lines[1]).toContain("yes");
+    expect(lines[2]).toContain("running");
+    expect(lines[3]).toContain("8");
+    expect(lines[8]).toContain("6");       // embeddings count
+    expect(lines[9]).toContain("6/8 (75%)"); // embedding coverage
   });
 
-  test("formats status with only seconds", () => {
+  test("formats unreachable Helix status", () => {
     const result = {
-      pid: 42,
-      startedAt: Date.now() - 5000,
-      uptime: 5000,
-      version: "0.2.0",
+      counts: null,
+      daemon: {
+        pid: null,
+        running: false,
+        socketResponsive: false,
+      },
+      embeddingCoverage: null,
+      error: "Cannot connect",
+      helixUrl: "http://127.0.0.1:6969",
+      reachable: false,
     };
     const lines = formatText(result);
-    expect(lines[1]).toBe("uptime:  5s");
+    expect(lines).toHaveLength(4);
+    expect(lines[1]).toContain("no");
+    expect(lines[2]).toContain("stopped");
+    expect(lines[3]).toContain("Cannot connect");
   });
 });
 

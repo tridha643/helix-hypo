@@ -12,6 +12,8 @@ type SyncToHelixOptions = {
   apiKey?: string | null;
   batchSize?: number;
   deployQueries?: boolean;
+  /** Default true: run local TF.js USE embeddings into V::FileEmbedding after graph sync. */
+  embedFiles?: boolean;
   helixUrl?: string;
   workspaceRoot?: string;
 };
@@ -58,6 +60,22 @@ async function runBatched<T>(
   }
 }
 
+async function embedFilesToHelix(client: HelixDB, model: import("./types.js").IndexModel): Promise<void> {
+  const { helixEmbed, loadLocalEmbeddingModel } = await import("./localEmbedder.js");
+  await loadLocalEmbeddingModel();
+  for (const file of model.files) {
+    const text = file.content ?? "";
+    if (!text.trim()) {
+      continue;
+    }
+    const vector = await helixEmbed(text);
+    await queryOrThrow(client, "CreateFileEmbedding", {
+      file_id: file.fileId,
+      vector,
+    });
+  }
+}
+
 export function createHelixClient(
   helixUrl: string = process.env.HELIX_URL ?? HELIX_DEFAULT_URL,
   apiKey: string | null = process.env.HELIX_API_KEY ?? null
@@ -73,7 +91,10 @@ export async function ensureHelixReachable(helixUrl: string): Promise<void> {
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    throw new Error(`Cannot connect to HelixDB at ${helixUrl}: ${message}`);
+    throw new Error(
+      `Cannot connect to HelixDB at ${helixUrl}: ${message}\n` +
+      `HelixDB must be running before using helix CLI commands.`
+    );
   }
 }
 
@@ -172,5 +193,46 @@ export async function syncToHelix(
     });
   });
 
+  if (options.embedFiles !== false) {
+    await embedFilesToHelix(client, model);
+  }
+
+  return queryOrThrow<HelixIndexCounts>(client, "GetIndexCounts", {});
+}
+
+/**
+ * Refresh only V::FileEmbedding vectors (local USE → HelixDB). Clears existing embeddings first.
+ */
+export async function syncFileEmbeddingsOnly(
+  model: IndexModel,
+  options: SyncToHelixOptions = {}
+): Promise<HelixIndexCounts> {
+  const helixUrl = options.helixUrl ?? process.env.HELIX_URL ?? HELIX_DEFAULT_URL;
+  const apiKey = options.apiKey ?? process.env.HELIX_API_KEY ?? null;
+  const workspaceRoot = options.workspaceRoot ?? getWorkspaceRootFromImportMeta(import.meta.url);
+
+  await ensureHelixReachable(helixUrl);
+
+  if (options.deployQueries !== false) {
+    await deployHelixProject(workspaceRoot);
+  }
+
+  const client = createHelixClient(helixUrl, apiKey);
+  try {
+    await queryOrThrow<string>(client, "ClearFileEmbeddings", {});
+  } catch (clearError) {
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    try {
+      await queryOrThrow<string>(client, "ClearFileEmbeddings", {});
+    } catch (retryError) {
+      const msg = retryError instanceof Error ? retryError.message : String(retryError);
+      throw new Error(
+        `Failed to clear existing embeddings: ${msg}. ` +
+        `This can happen if HelixDB's vector index is in an inconsistent state. ` +
+        `Try running 'helix index <path>' instead to do a full re-index.`
+      );
+    }
+  }
+  await embedFilesToHelix(client, model);
   return queryOrThrow<HelixIndexCounts>(client, "GetIndexCounts", {});
 }

@@ -1,30 +1,43 @@
 import { hasFlag, getOption, getPositional } from "../args.js";
 import { die, dieUsage } from "../errors.js";
 import { writeJson, writeLines } from "../format.js";
-import { sendDaemonRequest } from "../../daemon/ipc.js";
+import { runGraphQuery, runInfoQuery } from "../../helixOps/index.js";
 
 const HELP = `Usage: helix graph <subcommand> [options]
 
-Query the dependency graph analysis.
+Query the dependency graph analysis produced by 'helix index'. This runs
+Tarjan's SCC algorithm for cycle detection, topological sort, and
+dependency depth computation across all JS/TS imports.
 
 Subcommands:
-  entry-points     List files with no incoming imports
-  leaf-deps        List files with no outgoing imports
-  orphans          List files with no imports in either direction
-  cycles           List all cycles (or files in a specific cycle)
-  topo-order       Show topological ordering of files
-  most-imported    Show most-imported files (default top 20)
-  stats            Show index summary statistics
+  stats            Summary counts: files, dirs, packages, imports, entry
+                   points, leaf deps, orphans, and distinct cycle count.
+  entry-points     Files with zero incoming imports (nothing imports them).
+                   These are typically CLI entry points or top-level scripts.
+  leaf-deps        Files with zero outgoing imports (they import nothing).
+                   These are utility/config modules at the bottom of the DAG.
+  orphans          Files with no imports in either direction (isolated).
+  cycles           List files involved in import cycles. Optionally pass a
+                   file path to see only that file's cycle members.
+  topo-order       All files in topological order (dependencies before
+                   dependents). Useful for understanding build/load order.
+  most-imported    Files ranked by imported_by_count (most depended-on first).
+
+Output (text): file paths, one per line (stats shows key: value).
+Output (json): full result objects from HelixDB.
+
+Requires: helix index (repo must be indexed first)
 
 Options:
   --limit N    Limit results (most-imported, default: 20)
   --json       Output as JSON
 
 Examples:
-  helix graph entry-points
-  helix graph most-imported --limit 10
-  helix graph cycles --json
-  helix graph stats`;
+  helix graph stats                    # Quick index overview
+  helix graph entry-points             # Find CLI entry points
+  helix graph most-imported --limit 5  # Top 5 most-depended-on files
+  helix graph cycles                   # Show all cyclic files
+  helix graph cycles src/a.ts          # Show cycle members for a.ts`;
 
 const VALID_SUBCOMMANDS = [
   "entry-points",
@@ -133,11 +146,10 @@ export async function run(args: string[]): Promise<void> {
   }
 
   const parsed = parseArgs(args);
+  const queryOptions = { repoRoot: process.cwd() };
 
   if (parsed.subcommand === "stats") {
-    const result = await sendDaemonRequest("graph", {
-      subcommand: "stats",
-    });
+    const result = await runGraphQuery("stats", {}, queryOptions);
 
     if (parsed.json) {
       writeJson(result);
@@ -150,9 +162,7 @@ export async function run(args: string[]): Promise<void> {
   // For cycles with a file_id, use cycle-files subcommand
   if (parsed.subcommand === "cycles" && parsed.params.file_id) {
     // First get file info to find cycle_id
-    const infoRaw = (await sendDaemonRequest("info", {
-      fileId: parsed.params.file_id,
-    })) as Record<string, unknown>;
+    const infoRaw = (await runInfoQuery(parsed.params.file_id as string, queryOptions)) as Record<string, unknown>;
     const info = (infoRaw?.file ?? infoRaw) as Record<string, unknown>;
 
     const cycleId = info?.cycle_id;
@@ -161,10 +171,7 @@ export async function run(args: string[]): Promise<void> {
       return;
     }
 
-    const result = await sendDaemonRequest("graph", {
-      params: { cycle_id: cycleId },
-      subcommand: "cycle-files",
-    });
+    const result = await runGraphQuery("cycle-files", { cycle_id: cycleId }, queryOptions);
 
     if (parsed.json) {
       writeJson(result);
@@ -174,10 +181,7 @@ export async function run(args: string[]): Promise<void> {
     return;
   }
 
-  const result = await sendDaemonRequest("graph", {
-    params: parsed.params,
-    subcommand: parsed.subcommand,
-  });
+  const result = await runGraphQuery(parsed.subcommand, parsed.params, queryOptions);
 
   if (parsed.json) {
     writeJson(result);

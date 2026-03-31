@@ -58,3 +58,9 @@ E::ImportsExternal {
         names: String,
     }
 }
+
+// Local embeddings (TensorFlow.js Universal Sentence Encoder, 512-dim, L2-normalized in CLI — same idea as @orama/plugin-embeddings).
+V::FileEmbedding {
+    file_id: String,
+    model: String,
+}

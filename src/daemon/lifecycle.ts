@@ -1,4 +1,4 @@
-import { openSync, closeSync, constants as fsConstants } from "node:fs";
+import { closeSync, constants as fsConstants, existsSync, openSync } from "node:fs";
 import { readFile, writeFile, rename, unlink, stat, open } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -167,11 +167,21 @@ async function acquireLock(): Promise<boolean> {
 
 // ── Spawn / Stop / Restart ──────────────────────────────────────────────────
 
+export function resolveDaemonEntry(): string {
+  const thisFile = fileURLToPath(import.meta.url);
+  const baseDir = path.dirname(thisFile);
+  const distEntry = path.resolve(baseDir, "daemon.js");
+  if (existsSync(distEntry)) {
+    return distEntry;
+  }
+
+  return path.resolve(baseDir, "daemon.ts");
+}
+
 export async function spawnDaemon(): Promise<void> {
   await ensureHelixDir();
 
-  const thisFile = fileURLToPath(import.meta.url);
-  const daemonEntry = path.resolve(path.dirname(thisFile), "daemon.ts");
+  const daemonEntry = resolveDaemonEntry();
 
   const logFd = openSync(LOG_PATH, "a");
 

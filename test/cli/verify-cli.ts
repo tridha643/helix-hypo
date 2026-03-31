@@ -3,7 +3,7 @@
  * End-to-end CLI verification script.
  * Run: bun test/cli/verify-cli.ts
  *
- * Prerequisites: HelixDB running on port 6970, repo already indexed.
+ * Prerequisites: HelixDB running on port 6969, repo already indexed.
  * Executes each CLI command as a subprocess and validates exit codes,
  * stdout patterns, and JSON validity.
  */
@@ -20,7 +20,7 @@ type Check = {
 
 const checks: Check[] = [
   // Help
-  { cmd: "helix --help",           expect: { exitCode: 0, stdout: /Commands:/ } },
+  { cmd: "helix --help",           expect: { exitCode: 0, stdout: /Setup commands:/ } },
   { cmd: "helix deps --help",      expect: { exitCode: 0, stdout: /Examples:/ } },
   { cmd: "helix graph --help",     expect: { exitCode: 0, stdout: /Examples:/ } },
   { cmd: "helix grep --help",      expect: { exitCode: 0, stdout: /Examples:/ } },
@@ -35,7 +35,7 @@ const checks: Check[] = [
 
   // Version/status
   { cmd: "helix version",          expect: { exitCode: 0, stdout: /helix \d+\.\d+\.\d+/ } },
-  { cmd: "helix status",           expect: { exitCode: 0, stdout: /pid/ } },
+  { cmd: "helix status",           expect: { exitCode: 0, stdout: /reachable:/ } },
   { cmd: "helix status --json",    expect: { exitCode: 0, json: true } },
 
   // Graph analysis
@@ -84,7 +84,9 @@ const checks: Check[] = [
 ];
 
 async function runCheck(check: Check): Promise<{ message: string; pass: boolean }> {
-  const shellArgs = check.cmd.replace(/^helix /, "").split(/\s+/);
+  const shellArgs = (check.cmd.replace(/^helix /, "").match(/(?:[^\s"]+|"[^"]*")+/g) ?? []).map(
+    (a) => a.replace(/^"|"$/g, "")
+  );
   const proc = Bun.spawn(["bun", "src/cli/helix.ts", ...shellArgs], {
     cwd: process.cwd(),
     stdout: "pipe",
